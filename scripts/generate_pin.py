@@ -10,10 +10,8 @@ auto-publishes (see pin_feed.py); Telegram only hears about failures.
 Without LANDING_REPO_TOKEN (or on a dry run) the pin goes to Telegram instead,
 to be posted by hand.
 
-Pinterest cuts reach for weight-loss content and bans it in ads, so the copy
-is about face yoga, massage, habits and posture - never "burn fat" or
-before/after. The generated text is checked for those words and regenerated
-if they slip in.
+Little Atlas content introduces symbolic child profiles and creative keepsakes.
+Never present the product as diagnosis or a reliable prediction of the future.
 """
 
 import html
@@ -21,7 +19,6 @@ import io
 import os
 import time
 from pathlib import Path
-from urllib.parse import quote
 
 import requests
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
@@ -34,95 +31,82 @@ from pinterest_text import copyable
 PIN_W, PIN_H = 1000, 1500
 FONT_PATH = Path(__file__).resolve().parent.parent / "fonts" / "Outfit.ttf"
 
-PLAY_URL = "https://play.google.com/store/apps/details?id=com.faceslimmer.app"
-
-# Words that get a pin down-ranked on Pinterest or contradict what the app can
-# honestly promise. Checked case-insensitively against everything Gemini writes.
+# Claims rejected even if the model ignores the product brief.
 FORBIDDEN = [
-    "lose weight", "weight loss", "burn fat", "fat burning", "face fat",
-    "slim down", "slimming", "before and after", "before/after", "guaranteed",
-    "in 7 days", "in 30 days", "overnight", "fat face", "chubby",
+    "face slimmer", "face yoga", "gua sha", "mewing", "google play",
+    "guaranteed", "scientifically proven", "diagnose", "diagnosis",
+    "predict your child's future", "predicts your child's future",
+    "predict your child’s future", "predicts your child’s future",
+    "destined to", "will become", "accurate prediction",
 ]
 
-# Suffix shared by every image prompt: format, empty space for the title, and
-# no text from the model.
 IMAGE_SUFFIX = (
-    " Vertical 2:3 composition. The top third of the image is calm, uncluttered "
-    "background with no objects or faces, leaving room for a title. Photorealistic, "
-    "high detail, soft natural light. No text, no letters, no numbers, no logos, "
-    "no watermark."
+    " Vertical 2:3 composition. Leave the top third calm and uncluttered for a title. "
+    "Premium editorial still life or delicate symbolic illustration, warm ivory, "
+    "muted gold, sage and midnight blue, soft light, refined paper textures. "
+    "No text, letters, numbers, logos, watermarks, app screenshots or readable documents. "
+    "Do not depict real customer data, identifiable children or before-and-after portraits."
 )
 
 PIN_TYPES = {
-    "exercise": {
-        "board": "Face Yoga Exercises",
-        "brief": "A step-by-step face yoga or jawline exercise (3 moves or fewer) "
-                 "someone can do in 5 minutes. Name each move and give reps or seconds.",
-        "scene": "A calm young woman in her twenties doing a face yoga exercise with "
-                 "her fingertips on the face or jaw, eyes relaxed, shot from the "
-                 "chest up, clean minimal home interior.",
+    "strengths": {
+        "board": "Little Atlas Child Strengths",
+        "brief": "Three gentle observation prompts for parents noticing a child's curiosity, creativity or persistence. Frame these as everyday observations, never a fixed personality label.",
+        "scene": "A small compass, wooden building blocks and an open blank notebook arranged like a quiet discovery table, no people.",
     },
-    "depuff": {
-        "board": "Morning Depuff Routine",
-        "brief": "A quick morning routine against a puffy face: cold water or ice, "
-                 "gua sha toward the ears, water, less salt the evening before.",
-        "scene": "A flat lay from above of a morning skincare and depuff setup: gua "
-                 "sha stone, ice, a glass of water, a towel, a plant, on a soft "
-                 "light surface, objects in the lower two thirds only.",
+    "parenting": {
+        "board": "Little Atlas Mindful Parenting",
+        "brief": "Three small ways to make room for a child's own interests, such as offering choices, listening and exploring together. Avoid clinical advice and claims about developmental outcomes.",
+        "scene": "Two ceramic cups, colored pencils and a simple handmade paper boat on a warm family table, no people.",
     },
-    "habits": {
-        "board": "Healthy Face Habits",
-        "brief": "A checklist of 4-5 daily habits that make the face look less puffy: "
-                 "water, sleep, salt, sugar and alcohol, posture.",
-        "scene": "A minimal wellness still life (water carafe, tea, a small clock, a "
-                 "plant) on a soft neutral background, objects on one side only.",
+    "mandala": {
+        "board": "Little Atlas Personal Mandalas",
+        "brief": "Introduce the personal mandala in Free Atlas as symbolic artwork and a conversation starter about a child's unique qualities. Never claim healing, measurable energy or scientific assessment.",
+        "scene": "An original intricate circular botanical mandala in muted gold and sage on ivory paper, centered in the lower two thirds, no text.",
     },
-    "myth": {
-        "board": "Face Yoga Exercises",
-        "brief": "An honest myth-vs-fact about face exercises: they do not burn fat "
-                 "in one spot; they can tone muscles, reduce puffiness and improve "
-                 "posture. Plain and honest, no preaching.",
-        "scene": "A studio portrait of a young woman in her twenties in side profile "
-                 "with good upright posture and a defined jawline, against a smooth "
-                 "deep purple gradient background with soft cyan rim light.",
+    "keepsake": {
+        "board": "Little Atlas Family Keepsakes",
+        "brief": "An idea for a meaningful digital family keepsake. Explain that Premium Atlas includes artistic age cards and an expanded PDF; age imagery is imaginative, not a forecast of appearance or destiny. Do not invent prices, discounts or delivery times.",
+        "scene": "A premium memory box with blank art cards, pressed flowers and a small brass star on a linen surface, no portraits or text.",
     },
-    "mewing": {
-        "board": "Mewing & Posture",
-        "brief": "How to mew correctly: tongue flat on the roof of the mouth, lips "
-                 "closed, teeth lightly together, nasal breathing, good neck posture. "
-                 "Mention honestly that it does not reshape adult bones but posture "
-                 "makes the jawline look sharper.",
-        "scene": "A clean minimal 3D illustration of a human head in side profile "
-                 "with a straight neck, soft purple and cyan gradient colours, dark "
-                 "navy background, no labels.",
+    "free_atlas": {
+        "board": "Little Atlas Free Atlas",
+        "brief": "Introduce Free Atlas: a symbolic child profile with personality type, strengths, parent prompts and a personal mandala, based on birth details. Invite parents to explore the free profile without calling it diagnosis or a factual prediction.",
+        "scene": "A blank decorative portrait-format card with an abstract compass rose, a small constellation and a delicate mandala on cream paper, no readable UI.",
     },
 }
 
-TYPE_ORDER = ["exercise", "depuff", "habits", "myth", "mewing"]
+TYPE_ORDER = list(PIN_TYPES)
 
 
 def copy_prompt(pin_type: str) -> str:
     t = PIN_TYPES[pin_type]
-    return f"""You write Pinterest pins for women for 'Face Slimmer', a free Android app with daily 5-minute face yoga, facial massage and jawline routines, habit tracking and an AI face preview.
+    return f"""Write a Pinterest pin for Little Atlas, a web product for parents.
+PRODUCT FACTS:
+- Free Atlas is a symbolic child profile based on birth details, with personality type, strengths, parent prompts and a personal mandala.
+- Premium Atlas adds artistic age cards and an expanded PDF. Age images are imaginative artwork.
+- This is a creative, reflective experience, not psychological assessment, medical advice, scientific evidence or a reliable prediction of appearance, career or destiny.
+- Never invent testimonials, personal experience, expert endorsements, prices, discounts, app-store availability or results. Never imply Premium is free.
 
 Pin topic: {t['brief']}
 
-STRICT RULES:
-- English. Reads like a real woman sharing what works for her, not a wellness magazine and not an ad.
-- Pinterest is a search engine: use the words people actually type ("face yoga for jawline", "puffy face in the morning", "gua sha routine"), naturally, not stuffed.
-- Never promise weight or fat loss. Never use these words: {', '.join(FORBIDDEN)}.
-- No hashtags, no emojis.
-- Make it different from a generic version: pick a fresh angle, a specific move or a specific moment of the day.
+RULES:
+- English, warm and clear, addressing parents of any gender.
+- Use natural search phrases about child strengths, mindful parenting, personal mandalas and family keepsakes, selected for this topic.
+- Give one concrete idea or explain one real product feature. Avoid assigning a child a fixed future or pressuring parents.
+- Never use: {', '.join(FORBIDDEN)}.
+- No hashtags, emojis or URLs in the copy.
+- Mention Little Atlas naturally. Invite readers to explore or save the idea, without fabricated urgency.
 
 {HUMAN_RULES}
 
-Return ONLY valid JSON with fields:
-1. "overlay_title": the text drawn on the image, 3-7 words, title case, the key phrase first, a number when it fits (e.g. "3 Face Yoga Moves for a Sharper Jawline").
-2. "overlay_subtitle": 2-5 words shown under the title (e.g. "5 minutes a day"), or "" if not needed.
-3. "pin_title": Pinterest title, max 90 characters, starts with the search phrase. No "Phrase: Catchy Subtitle" pattern and no colon.
-4. "description": 250-420 characters. The first sentence contains the search phrase and a concrete problem (only the first ~60 characters show in the feed). Then the steps, short and specific. Then one short sentence that the full 5-minute routine is in the free Face Slimmer app. End with a short, natural nudge to save it (e.g. "Saving this for tomorrow morning"), worded differently each time.
-5. "alt_text": plain description of the image for screen readers, max 150 characters.
-6. "scene_detail": one sentence that varies this scene: {t['scene']} Describe a specific person, setting or arrangement, lighting and colour palette. Do not mention text or titles.
+Return ONLY valid JSON:
+1. "overlay_title": 3-7 words, key phrase first, max 60 characters.
+2. "overlay_subtitle": 2-5 words, or an empty string.
+3. "pin_title": search-friendly title, max 90 characters, no colon.
+4. "description": 250-420 characters: concrete idea or feature, then a short truthful Little Atlas invitation. For age cards explicitly say imaginative artwork, not a prediction.
+5. "alt_text": plain image description for screen readers, max 150 characters.
+6. "scene_detail": one visual variation of this scene: {t['scene']} Describe objects, lighting and palette only. No text, real child photos or fabricated screenshots.
 """
 
 
@@ -134,8 +118,8 @@ DESCRIPTION_MAX = 480  # pin_feed cuts at 500 - past that the app line is lost
 def copy_problems(copy: dict) -> list[str]:
     blob = " ".join(str(copy.get(k, "")) for k in READ_FIELDS).lower()
     bad = [w for w in FORBIDDEN if w in blob] + tells(blob)
-    if "face slimmer" not in str(copy.get("description", "")).lower():
-        bad.append("(the description must name Face Slimmer)")
+    if "little atlas" not in str(copy.get("description", "")).lower():
+        bad.append("(the description must name Little Atlas)")
     if len(str(copy.get("description", ""))) > DESCRIPTION_MAX:
         bad.append(f"(the description must be under {DESCRIPTION_MAX} characters)")
     return bad
@@ -233,7 +217,7 @@ def compose(photo: Image.Image, title: str, subtitle: str) -> bytes:
 
     # Brand pill at the bottom.
     bf = font(30, 700)
-    label = "Face Slimmer  ·  free on Google Play"
+    label = "Little Atlas  ·  A world of possibilities"
     tw = draw.textlength(label, font=bf)
     pw, ph = tw + 56, 62
     x0, y0 = (PIN_W - pw) / 2, PIN_H - ph - 48
@@ -251,8 +235,7 @@ def compose(photo: Image.Image, title: str, subtitle: str) -> bytes:
 
 
 def pin_link(pin_type: str) -> str:
-    referrer = f"utm_source=pinterest&utm_medium=social&utm_campaign={pin_type}"
-    return f"{PLAY_URL}&referrer={quote(referrer, safe='')}"
+    return pin_feed.landing_link(env("SITE_URL").rstrip("/"), pin_type)
 
 
 def send_preview(image: bytes, pin_type: str, copy: dict, link: str, status: str) -> None:
@@ -290,13 +273,15 @@ def send_preview(image: bytes, pin_type: str, copy: dict, link: str, status: str
 
 def main() -> None:
     # Validate configuration before spending generation credits.
-    for key in ("GEMINI_API_KEY", "HF_API_KEY"):
+    for key in ("GEMINI_API_KEY", "HF_API_KEY", "SITE_URL"):
         env(key)
     if os.environ.get("DRY_RUN", "").lower() != "true":
         required = ("LANDING_REPO", "SITE_URL", "PIN_COMMIT_NAME", "PIN_COMMIT_EMAIL") if os.environ.get("LANDING_REPO_TOKEN", "").strip() else ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID")
         for key in required:
             env(key)
     forced = os.environ.get("PIN_TYPE", "auto").strip().lower()
+    if forced not in {"", "auto", *PIN_TYPES}:
+        raise ValueError(f"Unknown PIN_TYPE: {forced}")
     if forced in PIN_TYPES:
         pin_type = forced
     else:

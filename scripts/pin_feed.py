@@ -70,11 +70,7 @@ class _Repo:
 
 
 def landing_link(site: str, pin_type: str) -> str:
-    """Where a pin leads. Pinterest rejects a feed whose item links leave the
-    claimed domain ("Links in the RSS feed are not under the claimed domain"),
-    so pins cannot point at Google Play directly. The landing page forwards
-    utm_* into the Play referrer, so installs still show up as "pinterest" in
-    Play Console."""
+    """Keep every pin destination on the Pinterest-claimed Little Atlas site."""
     return f"{site}/?utm_source=pinterest&utm_medium=social&utm_campaign={pin_type}"
 
 
@@ -102,9 +98,9 @@ def render_feed(site: str, board: str, items: list[dict]) -> str:
         '<?xml version="1.0" encoding="UTF-8"?>\n'
         '<rss version="2.0" xmlns:media="http://search.yahoo.com/mrss/">\n'
         "  <channel>\n"
-        f"    <title>Face Slimmer – {escape(board)}</title>\n"
+        f"    <title>Little Atlas – {escape(board)}</title>\n"
         f"    <link>{site}/</link>\n"
-        f"    <description>{escape(board)}: daily face yoga, massage and jawline routines from Face Slimmer.</description>\n"
+        f"    <description>{escape(board)}: symbolic child profiles, creative mandalas and family keepsakes from Little Atlas.</description>\n"
         "    <language>en</language>\n"
         + "\n".join(entries)
         + "\n  </channel>\n</rss>\n"

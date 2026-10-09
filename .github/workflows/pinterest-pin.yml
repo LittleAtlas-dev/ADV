@@ -19,7 +19,7 @@ on:
         description: 'Pin type (auto rotates by day)'
         required: false
         type: choice
-        options: ['auto', 'exercise', 'depuff', 'habits', 'myth', 'mewing']
+        options: ['auto', 'strengths', 'parenting', 'mandala', 'keepsake', 'free_atlas']
         default: 'auto'
       dry_run:
         description: 'Generate preview only (uses Gemini/Higgsfield credits; no RSS or Telegram publishing)'
