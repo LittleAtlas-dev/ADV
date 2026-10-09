@@ -1,0 +1,105 @@
+# Disabled: Pinterest runs in GitHub Actions; n8n is not required.
+# # Render Blueprint for a free n8n instance backed by Neon Postgres.
+# #
+# # Free plan has NO persistent disk, so ALL n8n data (workflows, credentials,
+# # executions) lives in Neon. The service sleeps when idle and is woken once a
+# # day by cron-job.org — see README.md.
+# #
+# # NOTE: the live service is named `fat_face_app_n8n` and was created manually,
+# # not from this Blueprint. Changing env vars here does NOT touch it — they must
+# # also be set in the Render dashboard. Keep the two in sync by hand.
+# services:
+#   - type: web
+#     name: faceslimmer-n8n
+#     runtime: docker
+#     plan: free
+#     dockerfilePath: ./Dockerfile
+#     # If this repo holds more than n8n, point Render at this folder:
+#     # rootDir: n8n
+#     # /healthz answers as soon as the port is bound — before Postgres is ready,
+#     # which is how cron requests got 503s. /healthz/readiness waits for the DB.
+#     healthCheckPath: /healthz/readiness
+#     envVars:
+#       # ---- Memory ---------------------------------------------------------
+#       # Without this, V8 sees the HOST's memory (not the 512 MB cgroup limit),
+#       # lets the heap grow past it and gets OOM-killed before GC ever runs.
+#       # Raise to 1536 if the instance is upgraded to a 2 GB plan.
+#       - key: NODE_OPTIONS
+#         value: --max-old-space-size=400
+#
+#       # ---- Public URL / networking ----------------------------------------
+#       # Set N8N_HOST and N8N_WEBHOOK_URL in the Render dashboard AFTER the first
+#       # deploy, once you know the service URL (https://<name>.onrender.com).
+#       - key: N8N_HOST
+#         sync: false                       # e.g. faceslimmer-n8n.onrender.com
+#       - key: N8N_WEBHOOK_URL
+#         sync: false                       # e.g. https://faceslimmer-n8n.onrender.com/
+#       - key: N8N_PROTOCOL
+#         value: https
+#       - key: N8N_PORT
+#         value: "5678"
+#       - key: N8N_PROXY_HOPS
+#         value: "1"                        # behind Render's proxy
+#
+#       # ---- Security / behaviour -------------------------------------------
+#       - key: N8N_ENCRYPTION_KEY
+#         generateValue: true               # generated once, then fixed; decrypts creds
+#       - key: GENERIC_TIMEZONE
+#         value: Europe/Berlin
+#       - key: TZ
+#         value: Europe/Berlin
+#
+#       # Trim the startup footprint — none of this is needed for a cron job.
+#       - key: N8N_DIAGNOSTICS_ENABLED
+#         value: "false"
+#       - key: N8N_VERSION_NOTIFICATIONS_ENABLED
+#         value: "false"
+#       - key: N8N_TEMPLATES_ENABLED
+#         value: "false"
+#       - key: N8N_PAYLOAD_SIZE_MAX
+#         value: "8"                        # MB, default 16
+#
+#       # ---- Execution data --------------------------------------------------
+#       # A runaway workflow writes its whole run history here. One oversized row
+#       # is enough to OOM the service on the NEXT boot, before it serves traffic.
+#       # Keep almost nothing.
+#       - key: EXECUTIONS_DATA_SAVE_ON_SUCCESS
+#         value: "none"
+#       - key: EXECUTIONS_DATA_SAVE_ON_ERROR
+#         value: "all"
+#       - key: EXECUTIONS_DATA_SAVE_ON_PROGRESS
+#         value: "false"
+#       - key: EXECUTIONS_DATA_PRUNE
+#         value: "true"
+#       - key: EXECUTIONS_DATA_MAX_AGE
+#         value: "24"                       # hours
+#       - key: EXECUTIONS_DATA_PRUNE_MAX_COUNT
+#         value: "50"
+#
+#       # ---- Neon Postgres (set the secrets in the dashboard) ---------------
+#       - key: DB_TYPE
+#         value: postgresdb
+#       - key: DB_POSTGRESDB_DATABASE
+#         value: n8n                        # a SEPARATE db from the app's fatface_db
+#       - key: DB_POSTGRESDB_HOST
+#         sync: false                       # e.g. ep-xxx-pooler.eu-central-1.aws.neon.tech
+#       - key: DB_POSTGRESDB_PORT
+#         value: "5432"
+#       - key: DB_POSTGRESDB_USER
+#         sync: false
+#       - key: DB_POSTGRESDB_PASSWORD
+#         sync: false
+#       - key: DB_POSTGRESDB_SCHEMA
+#         value: public
+#       - key: DB_POSTGRESDB_POOL_SIZE
+#         value: "2"
+#       # Neon requires SSL; this enables it without shipping a CA cert.
+#       - key: DB_POSTGRESDB_SSL_REJECT_UNAUTHORIZED
+#         value: "false"
+#
+# # Removed on purpose:
+# #   N8N_RUNNERS_ENABLED — deprecated. On current n8n task runners are always on,
+# #   so the flag does nothing but add a warning; on older pinned versions leaving
+# #   it unset saves ~150 MB by not spawning a second Node process.
+# #   WEBHOOK_URL        — renamed to N8N_WEBHOOK_URL above. Re-set it in the
+# #                        dashboard under the NEW key, the old one is ignored.

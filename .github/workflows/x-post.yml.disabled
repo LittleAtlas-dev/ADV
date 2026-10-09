@@ -1,0 +1,71 @@
+# Disabled: Pinterest only. Restore the commented YAML to re-enable.
+# name: X posts
+#
+# # Three posts for the app's own X account, sent to Telegram once a day with a
+# # button that opens X with the text filled in. Nothing is posted automatically
+# # - see scripts/generate_x_post.py.
+# #
+# # GitHub cron is UTC-only and has no DST. The times below land in the
+# # European working day and in Asia/Bangkok daylight (UTC+7), where the
+# # messages are actually read. The minute is off the hour on purpose:
+# # scheduled runs queue worst at :00 and can be delayed an hour or more.
+# # 07:10 UTC = 09:10 Berlin (08:10 in winter) = 14:10 Bangkok.
+# # About 1 min a run -> ~30 Actions minutes a month.
+# on:
+#   schedule:
+#     - cron: '10 7 * * *'
+#   workflow_dispatch:
+#     inputs:
+#       format:
+#         description: 'Only this format (auto = three rotating formats)'
+#         required: false
+#         type: choice
+#         options: ['auto', 'tip', 'build', 'feature', 'myth', 'question', 'routine']
+#         default: 'auto'
+#       dry_run:
+#         description: 'Print the posts instead of sending them to Telegram'
+#         required: false
+#         type: boolean
+#         default: false
+#
+# concurrency:
+#   group: x-post
+#   cancel-in-progress: false
+#
+# jobs:
+#   generate:
+#     runs-on: ubuntu-latest
+#     timeout-minutes: 5
+#     steps:
+#       - uses: actions/checkout@v4
+#
+#       - uses: actions/setup-python@v5
+#         with:
+#           python-version: '3.12'
+#
+#       - run: pip install --quiet requests
+#
+#       # Recent posts carry over so Gemini does not repeat itself. A cache
+#       # entry is immutable, so each run saves a new one and the next restores
+#       # the newest by prefix.
+#       - uses: actions/cache/restore@v4
+#         with:
+#           path: state
+#           key: x-posts-state-${{ github.run_id }}
+#           restore-keys: x-posts-state-
+#
+#       - name: Write posts and send them
+#         env:
+#           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+#           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+#           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+#           SITE_URL: https://fat-face-app-landing.vercel.app
+#           X_FORMAT: ${{ inputs.format }}
+#           DRY_RUN: ${{ inputs.dry_run }}
+#         run: python scripts/generate_x_post.py
+#
+#       - uses: actions/cache/save@v4
+#         if: always() && hashFiles('state/x_posts.json') != ''
+#         with:
+#           path: state
+#           key: x-posts-state-${{ github.run_id }}

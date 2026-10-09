@@ -1,0 +1,71 @@
+name: Pinterest pin
+
+# One pin a day. It is committed to the RSS feeds on the landing page, which
+# Pinterest auto-publishes; Telegram only gets failure alerts. Without the
+# LANDING_REPO_TOKEN secret the pin goes to Telegram to be posted by hand. The pin type rotates by
+# UTC day, so all five come up every five days.
+# GitHub cron is UTC-only and has no DST. The times below land in the
+# European working day and in Asia/Bangkok daylight (UTC+7), where the
+# messages are actually read. The minute is off the hour on purpose:
+# scheduled runs queue worst at :00 and can be delayed an hour or more.
+# 07:40 UTC = 09:40 Berlin (08:40 in winter) = 14:40 Bangkok,
+# an hour clear of the daily ad.
+on:
+  schedule:
+    - cron: '40 7 * * *'
+  workflow_dispatch:
+    inputs:
+      pin_type:
+        description: 'Pin type (auto rotates by day)'
+        required: false
+        type: choice
+        options: ['auto', 'exercise', 'depuff', 'habits', 'myth', 'mewing']
+        default: 'auto'
+      dry_run:
+        description: 'Generate preview only (uses Gemini/Kie credits; no RSS or Telegram publishing)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pinterest-pin
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: pip install --quiet requests pillow
+
+      - name: Generate Pinterest pin
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          KIE_API_KEY: ${{ secrets.KIE_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          LANDING_REPO_TOKEN: ${{ secrets.LANDING_REPO_TOKEN }}
+          LANDING_REPO: ${{ vars.LANDING_REPO }}
+          SITE_URL: ${{ vars.SITE_URL }}
+          PIN_COMMIT_NAME: ${{ vars.PIN_COMMIT_NAME }}
+          PIN_COMMIT_EMAIL: ${{ vars.PIN_COMMIT_EMAIL }}
+          PIN_TYPE: ${{ inputs.pin_type }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: python scripts/generate_pin.py
+
+      - name: Upload dry-run preview
+        if: ${{ inputs.dry_run }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: pinterest-preview
+          path: pin_preview.jpg
+          if-no-files-found: error

@@ -1,0 +1,54 @@
+# Disabled: Pinterest only. Restore the commented YAML to re-enable.
+# name: Daily ad generation
+#
+# # GitHub cron is UTC-only and has no DST. The times below land in the
+# # European working day and in Asia/Bangkok daylight (UTC+7), where the
+# # messages are actually read. The minute is off the hour on purpose:
+# # scheduled runs queue worst at :00 and can be delayed an hour or more.
+# # 06:40 UTC = 08:40 Berlin (07:40 in winter) = 13:40 Bangkok.
+# on:
+#   schedule:
+#     - cron: '40 6 * * *'
+#   workflow_dispatch:
+#     inputs:
+#       format:
+#         description: 'Force a format: 1 = AI banner (spends a Kie credit), 2 = dialogue meme'
+#         required: false
+#         type: choice
+#         options: ['auto', '1', '2']
+#         default: 'auto'
+#       dry_run:
+#         description: 'Generate but do not post to Telegram'
+#         required: false
+#         type: boolean
+#         default: false
+#
+# concurrency:
+#   group: daily-ad
+#   cancel-in-progress: false
+#
+# jobs:
+#   generate:
+#     runs-on: ubuntu-latest
+#     # Kie alone may poll for 15 minutes; leave room for Gemini retries on top.
+#     timeout-minutes: 30
+#     steps:
+#       - uses: actions/checkout@v4
+#
+#       - uses: actions/setup-python@v5
+#         with:
+#           python-version: '3.12'
+#
+#       - run: pip install --quiet requests pillow
+#
+#       - name: Generate and post
+#         env:
+#           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+#           KIE_API_KEY: ${{ secrets.KIE_API_KEY }}
+#           APITEMPLATE_API_KEY: ${{ secrets.APITEMPLATE_API_KEY }}
+#           APITEMPLATE_TEMPLATE_ID: ${{ secrets.APITEMPLATE_TEMPLATE_ID }}
+#           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+#           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+#           FORCE_FORMAT: ${{ inputs.format }}
+#           DRY_RUN: ${{ inputs.dry_run }}
+#         run: python scripts/generate_ad.py

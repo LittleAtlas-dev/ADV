@@ -1,0 +1,72 @@
+# Disabled: Pinterest only. Restore the commented YAML to re-enable.
+# name: Thread finder
+#
+# # Finds fresh Reddit threads to answer, drafts a reply and sends it to
+# # Telegram, plus X search buttons once a day. It never posts anything itself -
+# # see scripts/find_threads.py for why.
+# #
+# # GitHub cron is UTC-only and has no DST. The times below land in the
+# # European working day and in Asia/Bangkok daylight (UTC+7), where the
+# # messages are actually read. The minute is off the hour on purpose:
+# # scheduled runs queue worst at :00 and can be delayed an hour or more.
+# # 09:25 / 11:25 / 13:25 UTC = 16:25 / 18:25 / 20:25 Bangkok.
+# # That is earlier in the US day than before, so Reddit is quieter - but the
+# # replies are sent by hand, and a thread answered while it is still fresh
+# # beats a better-timed draft that is only seen the next morning.
+# # The repo is private, so Actions minutes are billed against the free 2000 a
+# # month, each run rounded up to a whole minute: 3 x ~1-2 min x 30 = 90-180.
+# on:
+#   schedule:
+#     - cron: '25 9,11,13 * * *'
+#   workflow_dispatch:
+#     inputs:
+#       dry_run:
+#         description: 'Print the drafts instead of sending them to Telegram'
+#         required: false
+#         type: boolean
+#         default: false
+#
+# concurrency:
+#   group: thread-finder
+#   cancel-in-progress: false
+#
+# jobs:
+#   find:
+#     runs-on: ubuntu-latest
+#     # A normal run takes about a minute; this caps a hung one.
+#     timeout-minutes: 5
+#     steps:
+#       - uses: actions/checkout@v4
+#
+#       - uses: actions/setup-python@v5
+#         with:
+#           python-version: '3.12'
+#
+#       - run: pip install --quiet requests
+#
+#       # Seen threads, subreddit cooldowns and daily counters carry over from
+#       # the last run through the cache. A cache entry is immutable, so each run
+#       # saves a new one and the next restores the newest by prefix.
+#       - uses: actions/cache/restore@v4
+#         with:
+#           path: state
+#           key: threads-state-${{ github.run_id }}
+#           restore-keys: threads-state-
+#
+#       - name: Find threads and send drafts
+#         env:
+#           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+#           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+#           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+#           THREADS_CHAT_ID: ${{ secrets.THREADS_CHAT_ID }}
+#           REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+#           REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+#           REDDIT_USERNAME: ${{ secrets.REDDIT_USERNAME }}
+#           DRY_RUN: ${{ inputs.dry_run }}
+#         run: python scripts/find_threads.py
+#
+#       - uses: actions/cache/save@v4
+#         if: always() && hashFiles('state/threads.json') != ''
+#         with:
+#           path: state
+#           key: threads-state-${{ github.run_id }}

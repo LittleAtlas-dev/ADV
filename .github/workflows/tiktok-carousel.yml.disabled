@@ -1,0 +1,76 @@
+# Disabled: Pinterest only. Restore the commented YAML to re-enable.
+# name: TikTok carousel
+#
+# # One TikTok photo-mode carousel a day, sent to Telegram as ready image prompts
+# # (text on the slide + background) plus title and description with hashtags.
+# # The images are generated and posted by hand - see
+# # scripts/generate_carousel.py.
+# #
+# # GitHub cron is UTC-only and has no DST. The times below land in the
+# # European working day and in Asia/Bangkok daylight (UTC+7), where the
+# # messages are actually read. The minute is off the hour on purpose:
+# # scheduled runs queue worst at :00 and can be delayed an hour or more.
+# # 08:10 UTC = 10:10 Berlin (09:10 in winter) = 15:10 Bangkok, an hour after
+# # the X posts. About 1 min a run -> ~30 minutes a month.
+# on:
+#   schedule:
+#     - cron: '10 8 * * *'
+#   # A run on demand without the GitHub UI: change the trigger file and push
+#   # (it sends a real carousel; format rotates as usual).
+#   push:
+#     branches: [main]
+#     paths: ['.github/triggers/tiktok-carousel']
+#   workflow_dispatch:
+#     inputs:
+#       format:
+#         description: 'Carousel format (auto rotates by day)'
+#         required: false
+#         type: choice
+#         options: ['auto', 'moves', 'reasons', 'myths', 'routine', 'habits', 'mistakes']
+#         default: 'auto'
+#       dry_run:
+#         description: 'Print the carousel instead of sending it to Telegram'
+#         required: false
+#         type: boolean
+#         default: false
+#
+# concurrency:
+#   group: tiktok-carousel
+#   cancel-in-progress: false
+#
+# jobs:
+#   generate:
+#     runs-on: ubuntu-latest
+#     timeout-minutes: 5
+#     steps:
+#       - uses: actions/checkout@v4
+#
+#       - uses: actions/setup-python@v5
+#         with:
+#           python-version: '3.12'
+#
+#       - run: pip install --quiet requests
+#
+#       # Recent hooks carry over so Gemini does not repeat itself. A cache entry
+#       # is immutable, so each run saves a new one and the next restores the
+#       # newest by prefix.
+#       - uses: actions/cache/restore@v4
+#         with:
+#           path: state
+#           key: carousels-state-${{ github.run_id }}
+#           restore-keys: carousels-state-
+#
+#       - name: Write the carousel and send it
+#         env:
+#           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+#           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+#           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+#           CAROUSEL_FORMAT: ${{ inputs.format }}
+#           DRY_RUN: ${{ inputs.dry_run }}
+#         run: python scripts/generate_carousel.py
+#
+#       - uses: actions/cache/save@v4
+#         if: always() && hashFiles('state/carousels.json') != ''
+#         with:
+#           path: state
+#           key: carousels-state-${{ github.run_id }}

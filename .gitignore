@@ -1,0 +1,5 @@
+*.bak
+__pycache__/
+.env
+.env.*
+pin_preview.jpg
