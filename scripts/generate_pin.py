@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Pinterest pin generation.
 
-One pin per run: Gemini writes the copy, Kie renders a 2:3 photo with no text
+One pin per run: Gemini writes the copy, Higgsfield renders a 2:3 photo with no text
 on it, and the title is drawn on top here with Pillow - image models misspell
 text, and a template service would need its own 2:3 template.
 
@@ -27,7 +27,7 @@ import requests
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 import pin_feed
-from pinterest_services import TIMEOUT, alert, env, gemini, kie_generate
+from pinterest_services import TIMEOUT, alert, env, gemini, higgsfield_generate
 from human_text import HUMAN_RULES, retry_note, tells, tidy
 from pinterest_text import copyable
 
@@ -290,7 +290,7 @@ def send_preview(image: bytes, pin_type: str, copy: dict, link: str, status: str
 
 def main() -> None:
     # Validate configuration before spending generation credits.
-    for key in ("GEMINI_API_KEY", "KIE_API_KEY"):
+    for key in ("GEMINI_API_KEY", "HF_API_KEY"):
         env(key)
     if os.environ.get("DRY_RUN", "").lower() != "true":
         required = ("LANDING_REPO", "SITE_URL", "PIN_COMMIT_NAME", "PIN_COMMIT_EMAIL") if os.environ.get("LANDING_REPO_TOKEN", "").strip() else ("TELEGRAM_BOT_TOKEN", "TELEGRAM_CHAT_ID")
@@ -309,16 +309,10 @@ def main() -> None:
         print(f"Copy: {copy.get('overlay_title')!r}")
 
         scene = str(copy.get("scene_detail") or PIN_TYPES[pin_type]["scene"])
-        try:
-            image_url = kie_generate(scene + IMAGE_SUFFIX, aspect_ratio="2:3", what="Pin")
-        except requests.HTTPError as exc:
-            # Not every Kie model takes 2:3. 9:16 is known to work, and
-            # compose() crops any ratio to 2:3.
-            print(f"2:3 rejected ({exc}), retrying at 9:16")
-            image_url = kie_generate(scene + IMAGE_SUFFIX, aspect_ratio="9:16", what="Pin")
-        photo = Image.open(
-            io.BytesIO(requests.get(image_url, timeout=TIMEOUT).content)
-        )
+        image_url = higgsfield_generate(scene + IMAGE_SUFFIX, aspect_ratio="2:3", what="Pin")
+        downloaded = requests.get(image_url, timeout=TIMEOUT)
+        downloaded.raise_for_status()
+        photo = Image.open(io.BytesIO(downloaded.content))
 
         pin = compose(
             photo,
@@ -343,4 +337,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

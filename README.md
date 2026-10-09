@@ -1,6 +1,6 @@
 # ADV — Pinterest RSS
 
-GitHub Actions → Gemini → Kie → JPEG 1000×1500 → репозиторий сайта → RSS → Pinterest.
+GitHub Actions → Gemini → Higgsfield → JPEG 1000×1500 → репозиторий сайта → RSS → Pinterest.
 
 Активен только Pinterest: ежедневно 07:40 UTC или ручной запуск. Остальные скрипты закомментированы, workflows сохранены как .yml.disabled. Dockerfile и Render Blueprint закомментированы: n8n не требуется.
 

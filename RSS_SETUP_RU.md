@@ -2,7 +2,7 @@
 
 ## 1. Подготовка
 
-Нужны Pinterest Business, подтверждённый сайт, ключи Gemini/Kie и репозиторий сайта с веткой main и автоматическим деплоем. ADV запускает генератор; push этого репозитория сам по себе не создаёт сайт и не подключает Pinterest.
+Нужны Pinterest Business, подтверждённый сайт, ключи Gemini/Higgsfield и репозиторий сайта с веткой main и автоматическим деплоем. ADV запускает генератор; push этого репозитория сам по себе не создаёт сайт и не подключает Pinterest.
 
 Сайт должен отдавать public/pins/ по адресу https://ВАШ-ДОМЕН/pins/. Для Next.js/Vite public — стандартная папка статических файлов. Для другого движка настройте её публикацию. XML и JPEG должны открываться без входа и защиты деплоя.
 
@@ -15,7 +15,7 @@ LittleAtlas-dev/ADV → Settings → Secrets and variables → Actions.
 | Имя | Значение |
 |---|---|
 | GEMINI_API_KEY | Ключ Gemini |
-| KIE_API_KEY | Ключ Kie с доступом к nano-banana-2-lite |
+| HF_API_KEY | Полный API-ключ из open.higgsfield.ai, вставленный как есть |
 | LANDING_REPO_TOKEN | Fine-grained GitHub token с Contents Read and write только для репозитория сайта |
 | TELEGRAM_BOT_TOKEN | Необязательно: бот для ошибок/ручной публикации |
 | TELEGRAM_CHAT_ID | Необязательно: ID чата, нужен вместе с токеном бота |
@@ -35,7 +35,7 @@ LittleAtlas-dev/ADV → Settings → Secrets and variables → Actions.
 
 Actions → Pinterest pin → Run workflow → pin_type: exercise, dry_run: true.
 
-Скачайте artifact pinterest-preview с pin_preview.jpg. Dry run не публикует RSS и Telegram, но вызывает реальные Gemini/Kie API и может расходовать кредиты. Права записи в сайт и Pinterest этим запуском не проверяются.
+Скачайте artifact pinterest-preview с pin_preview.jpg. Dry run не публикует RSS и Telegram, но вызывает реальные Gemini/Higgsfield API и может расходовать кредиты. Права записи в сайт и Pinterest этим запуском не проверяются.
 
 ## 4. Создание RSS
 
@@ -65,7 +65,7 @@ Pinterest поддерживает RSS 1/2, требует ссылки item н�
 | Проблема | Проверка |
 |---|---|
 | Missing required environment variable | Имена и значения Secrets/Variables |
-| Gemini/Kie 401/403 или ошибка модели | Ключ, квота и доступ модели у провайдера |
+| Gemini/Higgsfield 401/403 или ошибка модели | Ключ, квота и доступ модели у провайдера |
 | GitHub 403/404 | LANDING_REPO, права токена, одобрение организации, наличие main |
 | GitHub 409/422 | Защита ветки или параллельные коммиты; проверьте и повторите |
 | Коммит есть, RSS 404 | Деплой, автор коммита, публикация public/pins и маршрутизация |
@@ -80,3 +80,15 @@ Pinterest поддерживает RSS 1/2, требует ссылки item н�
 Остановить генерацию: Actions → Pinterest pin → Disable workflow. Уже добавленные записи Pinterest может дочитать; для полной остановки отключите также RSS в Pinterest.
 
 Официальные источники (проверены 9 октября 2026): [Pinterest RSS](https://help.pinterest.com/en/business/article/auto-publish-pins-from-your-rss-feed), [подтверждение сайта](https://help.pinterest.com/en/business/article/claim-your-website).
+
+## Переход с Kie на Higgsfield
+
+В GitHub добавьте Secret HF_API_KEY: полный ключ, скопированный из [Higgsfield API keys](https://open.higgsfield.ai/api-keys). Не добавляйте префикс Key в значение. KIE_API_KEY больше не используется активной автоматизацией и может быть удалён из Secrets.
+
+Изображения создаёт Soul Standard (higgsfield-ai/soul/standard), 1080p, 2:3, одна картинка на запуск; итоговый JPEG остаётся 1000×1500. Gemini продолжает писать текст. Для API нужен доступ и баланс API-аккаунта; подключение плагина Higgsfield в чате не передаёт авторизацию в GitHub Actions.
+
+При сетевой ошибке отправки генератор не повторяет запрос автоматически, чтобы не создать платный дубль. При таймауте ожидания запрос может продолжить работу на стороне Higgsfield: проверьте историю запросов перед повторным запуском. Ошибки и ID запроса видны в Actions, уведомления Telegram работают как раньше.
+
+Проверка после добавления ключа: Actions → Pinterest pin → Run workflow → dry_run: true. Этот режим расходует реальные API-кредиты, но не обновляет RSS. Затем запустите dry_run: false для публикации.
+
+Документация: [API quick start](https://open.higgsfield.ai/quick-start), [Soul Standard](https://open.higgsfield.ai/models/higgsfield-ai/soul/standard/api-reference).

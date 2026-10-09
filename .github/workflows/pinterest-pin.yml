@@ -22,7 +22,7 @@ on:
         options: ['auto', 'exercise', 'depuff', 'habits', 'myth', 'mewing']
         default: 'auto'
       dry_run:
-        description: 'Generate preview only (uses Gemini/Kie credits; no RSS or Telegram publishing)'
+        description: 'Generate preview only (uses Gemini/Higgsfield credits; no RSS or Telegram publishing)'
         required: false
         type: boolean
         default: false
@@ -50,7 +50,7 @@ jobs:
       - name: Generate Pinterest pin
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          KIE_API_KEY: ${{ secrets.KIE_API_KEY }}
+          HF_API_KEY: ${{ secrets.HF_API_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           LANDING_REPO_TOKEN: ${{ secrets.LANDING_REPO_TOKEN }}
